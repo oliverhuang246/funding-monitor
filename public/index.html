@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资金费率监控</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0b0e11;
+  color: #eaecef;
+  min-height: 100vh;
+}
+.header {
+  background: #12161c;
+  border-bottom: 1px solid #1e2329;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header h1 {
+  font-size: 20px;
+  color: #f0b90b;
+  font-weight: 700;
+}
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: #848e9c;
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+.status-dot.ok { background: #0ecb81; }
+.status-dot.err { background: #f6465d; }
+
+.controls {
+  background: #12161c;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #1e2329;
+}
+.controls input[type="text"] {
+  background: #1e2329;
+  border: 1px solid #2b3139;
+  color: #eaecef;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 220px;
+}
+.controls input[type="text"]::placeholder { color: #5e6673; }
+.exchange-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.exchange-btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid #2b3139;
+  background: #1e2329;
+  color: #848e9c;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.exchange-btn:hover { border-color: #f0b90b; color: #f0b90b; }
+.exchange-btn.active { background: #f0b90b; color: #0b0e11; border-color: #f0b90b; font-weight: 600; }
+
+.sort-controls {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  align-items: center;
+}
+.sort-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #2b3139;
+  background: #1e2329;
+  color: #848e9c;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.sort-btn:hover { border-color: #f0b90b; color: #f0b90b; }
+.sort-btn.active { background: #2b3139; color: #eaecef; border-color: #f0b90b; }
+
+.container { padding: 0; }
+.table-wrapper {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+thead {
+  background: #12161c;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+th {
+  padding: 12px 16px;
+  text-align: left;
+  color: #848e9c;
+  font-weight: 500;
+  border-bottom: 1px solid #1e2329;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+th:hover { color: #f0b90b; }
+th .sort-arrow { font-size: 10px; margin-left: 4px; }
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #1e2329;
+  white-space: nowrap;
+}
+tr:hover { background: #1e2329; }
+.exchange-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.exchange-Binance { background: #f0b90b22; color: #f0b90b; }
+.exchange-Bybit { background: #f7a60022; color: #f7a600; }
+.exchange-OKX { background: #ffffff15; color: #fff; }
+.exchange-Bitget { background: #00b37c22; color: #00b37c; }
+.exchange-Gate { background: #2354e622; color: #2354e6; }
+.exchange-Hyperliquid { background: #6ee7b722; color: #6ee7b7; }
+.exchange-Aster { background: #a855f722; color: #a855f7; }
+
+.rate-positive { color: #0ecb81; font-weight: 600; }
+.rate-negative { color: #f6465d; font-weight: 600; }
+.rate-neutral { color: #848e9c; }
+
+.apy { font-size: 12px; color: #848e9c; }
+
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: #848e9c;
+  font-size: 16px;
+}
+.countdown {
+  font-size: 12px;
+  color: #5e6673;
+}
+
+/* Comparison view */
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+}
+.view-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #2b3139;
+  background: #1e2329;
+  color: #848e9c;
+  cursor: pointer;
+  font-size: 12px;
+}
+.view-btn.active { background: #f0b90b; color: #0b0e11; border-color: #f0b90b; }
+
+.compare-table th, .compare-table td { text-align: center; }
+.compare-table .symbol-col { text-align: left; position: sticky; left: 0; background: #0b0e11; z-index: 5; }
+.compare-table thead .symbol-col { background: #12161c; }
+.compare-table tr:hover .symbol-col { background: #1e2329; }
+
+.stats-bar {
+  display: flex;
+  gap: 24px;
+  padding: 12px 24px;
+  background: #12161c;
+  border-bottom: 1px solid #1e2329;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.stat-item { color: #848e9c; }
+.stat-item span { color: #eaecef; font-weight: 600; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Funding Rate Monitor</h1>
+  <div class="header-info">
+    <span id="exchangeStatus"></span>
+    <span class="countdown" id="countdown"></span>
+    <span id="lastUpdate" style="font-size:12px;color:#5e6673"></span>
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="controls">
+  <input type="text" id="searchInput" placeholder="搜索币种... (例: BTC, ETH)">
+  <div class="exchange-filters" id="exchangeFilters"></div>
+  <div class="sort-controls">
+    <span style="color:#5e6673;font-size:12px;">排序:</span>
+    <button class="sort-btn active" data-sort="rate">费率</button>
+    <button class="sort-btn" data-sort="volume">成交量</button>
+    <button class="sort-btn" data-sort="symbol">币种</button>
+    <button class="sort-btn" id="sortDirBtn" title="切换排序方向">↓ 降序</button>
+  </div>
+  <div class="view-toggle">
+    <button class="view-btn active" data-view="list">列表</button>
+    <button class="view-btn" data-view="compare">对比</button>
+  </div>
+  <button class="sort-btn" id="refreshBtn" style="margin-left:8px;border-color:#f0b90b;color:#f0b90b;">↻ 刷新</button>
+</div>
+
+<div class="container">
+  <div class="table-wrapper" id="tableWrapper">
+    <div class="loading" id="loading">加载中...</div>
+  </div>
+</div>
+
+<script>
+const EXCHANGES = ['Binance', 'Bybit', 'OKX', 'Bitget', 'Gate', 'Hyperliquid', 'Aster'];
+const REFRESH_INTERVAL = 30; // seconds
+
+let allData = [];
+let activeExchanges = new Set(EXCHANGES);
+let currentSort = 'rate';
+let sortAsc = false;
+let currentView = 'list';
+let countdownVal = REFRESH_INTERVAL;
+
+// Init exchange filter buttons
+const filtersEl = document.getElementById('exchangeFilters');
+EXCHANGES.forEach(ex => {
+  const btn = document.createElement('button');
+  btn.className = 'exchange-btn active';
+  btn.textContent = ex;
+  btn.dataset.exchange = ex;
+  btn.addEventListener('click', () => {
+    if (activeExchanges.has(ex)) {
+      if (activeExchanges.size === 1) return; // keep at least one
+      activeExchanges.delete(ex);
+      btn.classList.remove('active');
+    } else {
+      activeExchanges.add(ex);
+      btn.classList.add('active');
+    }
+    renderTable();
+  });
+  filtersEl.appendChild(btn);
+});
+
+// Sort buttons
+function updateSortDirBtn() {
+  const btn = document.getElementById('sortDirBtn');
+  btn.textContent = sortAsc ? '↑ 升序' : '↓ 降序';
+}
+
+document.querySelectorAll('.sort-btn[data-sort]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const sort = btn.dataset.sort;
+    if (currentSort === sort) {
+      sortAsc = !sortAsc;
+    } else {
+      currentSort = sort;
+      sortAsc = sort === 'symbol';
+    }
+    document.querySelectorAll('.sort-btn[data-sort]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateSortDirBtn();
+    renderTable();
+  });
+});
+
+// Sort direction toggle
+document.getElementById('sortDirBtn').addEventListener('click', () => {
+  sortAsc = !sortAsc;
+  updateSortDirBtn();
+  renderTable();
+});
+
+// Refresh button
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  document.getElementById('refreshBtn').textContent = '↻ 刷新中...';
+  fetchData().then(() => {
+    document.getElementById('refreshBtn').textContent = '↻ 刷新';
+    countdownVal = REFRESH_INTERVAL;
+  });
+});
+
+// View toggle
+document.querySelectorAll('.view-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentView = btn.dataset.view;
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  });
+});
+
+// Search
+document.getElementById('searchInput').addEventListener('input', () => renderTable());
+
+function getFilteredData() {
+  const search = document.getElementById('searchInput').value.toUpperCase().trim();
+  let data = allData.filter(d => activeExchanges.has(d.exchange));
+  if (search) {
+    data = data.filter(d => d.symbol.toUpperCase().includes(search));
+  }
+  return data;
+}
+
+function sortData(data) {
+  const dir = sortAsc ? -1 : 1;
+  return data.sort((a, b) => {
+    switch (currentSort) {
+      case 'rate': return dir * (b.fundingRate - a.fundingRate);
+      case 'volume': return dir * (b.volume24h - a.volume24h);
+      case 'symbol': return dir * a.symbol.localeCompare(b.symbol);
+      default: return 0;
+    }
+  });
+}
+
+function formatRate(rate) {
+  const cls = rate > 0.001 ? 'rate-positive' : rate < -0.001 ? 'rate-negative' : 'rate-neutral';
+  return `<span class="${cls}">${rate >= 0 ? '+' : ''}${rate.toFixed(4)}%</span>`;
+}
+
+function formatAPY(rate, interval) {
+  const apy = rate * (24 / interval) * 365;
+  return `<span class="apy">${apy >= 0 ? '+' : ''}${apy.toFixed(1)}%</span>`;
+}
+
+function formatVolume(v) {
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+  if (v > 0) return '$' + v.toFixed(0);
+  return '-';
+}
+
+function formatPrice(p) {
+  if (p >= 1000) return '$' + p.toLocaleString('en-US', {maximumFractionDigits: 2});
+  if (p >= 1) return '$' + p.toFixed(4);
+  if (p >= 0.001) return '$' + p.toFixed(6);
+  return '$' + p.toPrecision(4);
+}
+
+function formatNextFunding(ts) {
+  if (!ts || ts <= 0) return '-';
+  const diff = ts - Date.now();
+  if (diff <= 0) return '即将结算';
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  return `${h}h ${m}m`;
+}
+
+function renderListView(data) {
+  const sorted = sortData([...data]);
+  let html = `<table>
+    <thead><tr>
+      <th>#</th>
+      <th>交易所</th>
+      <th>币种</th>
+      <th>价格</th>
+      <th>资金费率</th>
+      <th>年化</th>
+      <th>结算间隔</th>
+      <th>下次结算</th>
+      <th>持仓量</th>
+      <th>24h成交量</th>
+    </tr></thead><tbody>`;
+
+  sorted.forEach((d, i) => {
+    html += `<tr>
+      <td style="color:#5e6673">${i + 1}</td>
+      <td><span class="exchange-tag exchange-${d.exchange}">${d.exchange}</span></td>
+      <td style="font-weight:600">${d.symbol}</td>
+      <td>${formatPrice(d.price)}</td>
+      <td>${formatRate(d.fundingRate)}</td>
+      <td>${formatAPY(d.fundingRate, d.interval)}</td>
+      <td style="color:#848e9c">${d.interval}h</td>
+      <td style="color:#848e9c">${formatNextFunding(d.nextFundingTime)}</td>
+      <td style="color:#848e9c">${formatVolume(d.openInterest)}</td>
+      <td style="color:#848e9c">${formatVolume(d.volume24h)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderCompareView(data) {
+  // Group by symbol, show rates across exchanges
+  const symbolMap = {};
+  data.forEach(d => {
+    if (!symbolMap[d.symbol]) symbolMap[d.symbol] = { symbol: d.symbol, maxAbsRate: 0 };
+    symbolMap[d.symbol][d.exchange] = d;
+    symbolMap[d.symbol].maxAbsRate = Math.max(symbolMap[d.symbol].maxAbsRate, Math.abs(d.fundingRate));
+  });
+
+  let symbols = Object.values(symbolMap);
+  // Sort by max absolute rate across exchanges
+  symbols.sort((a, b) => b.maxAbsRate - a.maxAbsRate);
+
+  // Only show symbols present on 2+ exchanges
+  symbols = symbols.filter(s => {
+    let count = 0;
+    EXCHANGES.forEach(ex => { if (activeExchanges.has(ex) && s[ex]) count++; });
+    return count >= 2;
+  });
+
+  const activeExArr = EXCHANGES.filter(ex => activeExchanges.has(ex));
+
+  let html = `<table class="compare-table">
+    <thead><tr>
+      <th class="symbol-col">币种</th>
+      ${activeExArr.map(ex => `<th><span class="exchange-tag exchange-${ex}">${ex}</span></th>`).join('')}
+      <th>最大差值</th>
+    </tr></thead><tbody>`;
+
+  symbols.slice(0, 200).forEach(s => {
+    let rates = [];
+    let cells = '';
+    activeExArr.forEach(ex => {
+      if (s[ex]) {
+        rates.push(s[ex].fundingRate);
+        cells += `<td>${formatRate(s[ex].fundingRate)}</td>`;
+      } else {
+        cells += '<td style="color:#2b3139">-</td>';
+      }
+    });
+    const spread = rates.length >= 2 ? (Math.max(...rates) - Math.min(...rates)) : 0;
+    const spreadCls = spread > 0.01 ? 'rate-positive' : 'rate-neutral';
+    html += `<tr>
+      <td class="symbol-col" style="font-weight:600">${s.symbol}</td>
+      ${cells}
+      <td><span class="${spreadCls}">${spread.toFixed(4)}%</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderStats(data) {
+  const total = data.length;
+  const positive = data.filter(d => d.fundingRate > 0.001).length;
+  const negative = data.filter(d => d.fundingRate < -0.001).length;
+  const avgRate = total > 0 ? data.reduce((s, d) => s + d.fundingRate, 0) / total : 0;
+  const topPositive = [...data].sort((a, b) => b.fundingRate - a.fundingRate).slice(0, 3);
+  const topNegative = [...data].sort((a, b) => a.fundingRate - b.fundingRate).slice(0, 3);
+
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-item">合约总数:<span>${total}</span></div>
+    <div class="stat-item">正费率:<span style="color:#0ecb81">${positive}</span></div>
+    <div class="stat-item">负费率:<span style="color:#f6465d">${negative}</span></div>
+    <div class="stat-item">平均费率:<span>${avgRate >= 0 ? '+' : ''}${avgRate.toFixed(4)}%</span></div>
+    <div class="stat-item">最高:
+      ${topPositive.map(d => `<span style="color:#0ecb81">${d.symbol}(${d.exchange}) ${d.fundingRate.toFixed(4)}%</span>`).join(' ')}
+    </div>
+    <div class="stat-item">最低:
+      ${topNegative.map(d => `<span style="color:#f6465d">${d.symbol}(${d.exchange}) ${d.fundingRate.toFixed(4)}%</span>`).join(' ')}
+    </div>
+  `;
+}
+
+function renderTable() {
+  const data = getFilteredData();
+  renderStats(data);
+  const wrapper = document.getElementById('tableWrapper');
+  if (currentView === 'list') {
+    wrapper.innerHTML = renderListView(data);
+  } else {
+    wrapper.innerHTML = renderCompareView(data);
+  }
+}
+
+async function fetchData() {
+  try {
+    const res = await fetch('/api/funding-rates');
+    const json = await res.json();
+    allData = json.data || [];
+
+    // Update exchange status
+    const statusEl = document.getElementById('exchangeStatus');
+    statusEl.innerHTML = EXCHANGES.map(ex => {
+      const count = json.exchangeStatus?.[ex] || 0;
+      const dotCls = count > 0 ? 'ok' : 'err';
+      return `<span class="status-dot ${dotCls}"></span>${ex}(${count})`;
+    }).join('&nbsp;&nbsp;');
+
+    document.getElementById('lastUpdate').textContent =
+      '更新: ' + new Date().toLocaleTimeString();
+
+    renderTable();
+  } catch (e) {
+    console.error('Fetch error:', e);
+    document.getElementById('tableWrapper').innerHTML =
+      '<div class="loading" style="color:#f6465d">加载失败，请检查服务器是否运行</div>';
+  }
+}
+
+// Countdown timer
+setInterval(() => {
+  countdownVal--;
+  if (countdownVal <= 0) {
+    countdownVal = REFRESH_INTERVAL;
+    fetchData();
+  }
+  document.getElementById('countdown').textContent = `${countdownVal}s 后刷新`;
+}, 1000);
+
+fetchData();
+</script>
+</body>
+</html>
