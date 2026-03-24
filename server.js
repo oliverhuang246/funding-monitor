@@ -214,9 +214,15 @@ async function fetchGate() {
 
 async function fetchHyperliquid() {
   try {
+    const hlHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Content-Type': 'application/json',
+      'Origin': 'https://app.hyperliquid.xyz',
+      'Referer': 'https://app.hyperliquid.xyz/',
+    };
     const [metaRes, ctxRes] = await Promise.all([
-      axios.post('https://api.hyperliquid.xyz/info', { type: 'meta' }),
-      axios.post('https://api.hyperliquid.xyz/info', { type: 'metaAndAssetCtxs' }),
+      axios.post('https://api.hyperliquid.xyz/info', { type: 'meta' }, { headers: hlHeaders, timeout: 15000 }),
+      axios.post('https://api.hyperliquid.xyz/info', { type: 'metaAndAssetCtxs' }, { headers: hlHeaders, timeout: 15000 }),
     ]);
     const universe = metaRes.data.universe || [];
     const assetCtxs = ctxRes.data?.[1] || [];
