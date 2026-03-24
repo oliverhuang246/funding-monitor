@@ -301,23 +301,30 @@ app.get('/api/funding-rates', async (req, res) => {
   const now = Date.now();
 
   if (!fastCache.data.length || now - fastCache.timestamp > FAST_TTL) {
-    try {
-      const results = await Promise.allSettled([
-        fetchBinance(),
-        fetchBybit(),
-        fetchBitget(),
-        fetchGate(),
-        fetchHyperliquid(),
-        fetchAster(),
-      ]);
-
-      const fastData = results
-        .filter(r => r.status === 'fulfilled')
-        .flatMap(r => r.value);
-
-      fastCache = { data: fastData, timestamp: now, results };
-    } catch (e) {
-      console.error('Fast fetch error:', e.message);
+    // If we have stale data, return it immediately and refresh in background
+    if (fastCache.data.length && now - fastCache.timestamp > FAST_TTL) {
+      setImmediate(async () => {
+        try {
+          const results = await Promise.allSettled([
+            fetchBinance(), fetchBybit(), fetchBitget(),
+            fetchGate(), fetchHyperliquid(), fetchAster(),
+          ]);
+          const fastData = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
+          if (fastData.length) fastCache = { data: fastData, timestamp: Date.now(), results };
+        } catch (e) { console.error('Background fast fetch error:', e.message); }
+      });
+    } else {
+      // First load: wait for data
+      try {
+        const results = await Promise.allSettled([
+          fetchBinance(), fetchBybit(), fetchBitget(),
+          fetchGate(), fetchHyperliquid(), fetchAster(),
+        ]);
+        const fastData = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
+        fastCache = { data: fastData, timestamp: now, results };
+      } catch (e) {
+        console.error('Fast fetch error:', e.message);
+      }
     }
   }
 

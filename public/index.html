@@ -512,8 +512,11 @@ async function fetchData() {
     renderTable();
   } catch (e) {
     console.error('Fetch error:', e);
-    document.getElementById('tableWrapper').innerHTML =
-      '<div class="loading" style="color:#f6465d">加载失败，请检查服务器是否运行</div>';
+    if (!allData.length) {
+      document.getElementById('tableWrapper').innerHTML =
+        '<div class="loading" style="color:#f6465d">加载失败，请稍后重试</div>';
+    }
+    // If we have previous data, keep showing it silently
   }
 }
 
