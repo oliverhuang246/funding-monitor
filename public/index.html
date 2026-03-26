@@ -217,7 +217,8 @@ tr:hover { background: #1e2329; }
   <div class="exchange-filters" id="exchangeFilters"></div>
   <div class="sort-controls">
     <span style="color:#5e6673;font-size:12px;">排序:</span>
-    <button class="sort-btn active" data-sort="rate">费率</button>
+    <button class="sort-btn" data-sort="rate">费率</button>
+    <button class="sort-btn active" data-sort="apy">年化</button>
     <button class="sort-btn" data-sort="volume">成交量</button>
     <button class="sort-btn" data-sort="symbol">币种</button>
     <button class="sort-btn" id="sortDirBtn" title="切换排序方向">↓ 降序</button>
@@ -241,7 +242,7 @@ const REFRESH_INTERVAL = 30; // seconds
 
 let allData = [];
 let activeExchanges = new Set(EXCHANGES);
-let currentSort = 'rate';
+let currentSort = 'apy';
 let sortAsc = false;
 let currentView = 'list';
 let countdownVal = REFRESH_INTERVAL;
@@ -330,8 +331,10 @@ function getFilteredData() {
 function sortData(data) {
   const dir = sortAsc ? -1 : 1;
   return data.sort((a, b) => {
+    const apyOf = d => d.fundingRate * (24 / (d.interval || 8)) * 365;
     switch (currentSort) {
       case 'rate': return dir * (b.fundingRate - a.fundingRate);
+      case 'apy': return dir * (apyOf(b) - apyOf(a));
       case 'volume': return dir * (b.volume24h - a.volume24h);
       case 'symbol': return dir * a.symbol.localeCompare(b.symbol);
       default: return 0;
